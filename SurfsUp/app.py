@@ -52,3 +52,10 @@ def precipitation():
     #Convert the most recent date to a datetime object.
     for date in date_query:
         latest_date = pd.to_datetime(date)
+    
+    #Create a query that collects only the date and precipitation
+    #for the last year of data without passing the date as a variable
+    date_one_year_ago = dt.date(latest_date.year-1,latest_date.month,latest_date.day)
+
+    one_year = session.query(Measurement.date,Measurement.prcp).\
+                             filter(Measurement.date >= date_one_year_ago).all()

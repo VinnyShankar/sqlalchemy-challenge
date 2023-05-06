@@ -12,3 +12,6 @@ from sqlalchemy import create_engine, func
 #################################################
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
+# reflect an existing database into a new model
+Base = automap_base()
+

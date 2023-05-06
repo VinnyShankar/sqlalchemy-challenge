@@ -15,7 +15,6 @@ engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 # reflect an existing database into a new model
 Base = automap_base()
 
-
 # reflect the tables
 Base.prepare(autoload_with=engine)
 
@@ -34,9 +33,19 @@ app = Flask(__name__)
 @app.route("/")
 def welcome():
     """List all available routes."""
-    return(f"Available Routes:<br/>"
+    return(f"Welcome to the Home Page!<br/>"
+           f"Available Routes:<br/>"
            f"/api/v1.0/precipitation<br/>"
            f"/api/v1.0/stations<br/>"
            f"/api/v1.0/tobs<br/>"
            f"/api/v1.0/<start><br/>"
            f"/api/v1.0/<start>/<end>")
+
+@app.route("precipitation")
+def precipitation():
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+
+    #Create a query that finds the most recent date in the dataset
+    date_query = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    date_query

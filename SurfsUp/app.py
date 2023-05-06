@@ -48,4 +48,7 @@ def precipitation():
 
     #Create a query that finds the most recent date in the dataset
     date_query = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
-    date_query
+    
+    #Convert the most recent date to a datetime object.
+    for date in date_query:
+        latest_date = pd.to_datetime(date)

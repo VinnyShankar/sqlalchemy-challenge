@@ -19,3 +19,7 @@ Base = automap_base()
 # reflect the tables
 Base.prepare(autoload_with=engine)
 
+# Save references to each table
+Measurement = Base.classes.measurement
+Station = Base.classes.station
+

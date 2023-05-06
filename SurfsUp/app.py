@@ -23,3 +23,7 @@ Base.prepare(autoload_with=engine)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
+#################################################
+# Flask Setup
+#################################################
+app = Flask(__name__)  

@@ -95,34 +95,20 @@ def precipitation():
 def stations():
 
     ####################################################
-    # Present list of stations
+    # Present list of unique stations
     ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # Query
-    stations = session.query(Station.id,
-                             Station.station,
-                             Station.name,
-                             Station.longitude,
-                             Station.latitude,
-                             Station.elevation)
+    # Query unique stations from Station table
+    stations = session.query(Station.station).distinct()
     
     # Close the session
     session.close()
 
-    # Convert query results into dictionaries
-    station_list = []
-    for id, station, name, longitude, latitude, elevation in stations:
-        station_dict = {}
-        station_dict["id"] = id
-        station_dict["station"] = station
-        station_dict["name"] = name
-        station_dict["longitude"] = longitude
-        station_dict["latitude"] = latitude
-        station_dict["elevation"] = elevation
-        station_list.append(station_dict)
+    # Extract station id from each row in the query
+    station_list = [station[0] for station in stations]
 
     # Return json
     return jsonify(station_list)

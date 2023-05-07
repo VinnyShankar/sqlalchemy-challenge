@@ -184,5 +184,31 @@ def start(start):
     # Return json
     return jsonify(summary_list)
 
+@app.route("/api/v1.0/<start>/<end>")
+def startend(start,end):
+
+    ####################################################
+    # MIN, MAX, AVG temp for all dates since start
+    ####################################################
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    summary = session.query(func.min(Measurement.tobs),
+                            func.max(Measurement.tobs),
+                            func.avg(Measurement.tobs)).\
+                            filter(Measurement.date >= start).\
+                            filter(Measurement.date <= end)
+    
+    # Close the session
+    session.close()
+
+    # Extract results from query
+    for row in summary:
+        summary_list = tuple(row)
+
+    # Return json
+    return jsonify(summary_list)
+
 if __name__ == "__main__":
     app.run(debug=True)

@@ -22,16 +22,20 @@ Base.prepare(autoload_with=engine)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
+#################################################
+# Queries to reduce reundant code
+#################################################
+
 # Create session (link) from Python to the DB
 session = Session(engine)
 
 # Query the latest date in the dataset
 date_query = session.query(Measurement.date).\
-                            order_by(Measurement.date.desc()).first()
+                           order_by(Measurement.date.desc()).\
+                           first()[0]
 
 # Convert the latest date to a datetime object
-for date in date_query:
-    latest_date = pd.to_datetime(date)
+latest_date = pd.to_datetime(date_query)
 
 # Get the date one year ago
 date_one_year_ago = dt.date(latest_date.year-1,
@@ -56,20 +60,20 @@ def welcome():
            f"---------------------------------<br/>"
            f"Available Routes:<br/>"
            f"---------------------------------<br/>"
-           f"Latest year of precipitation data:<br/>"
+           f"Date and precipitation for latest year:<br/>"
            f"/api/v1.0/precipitation<br/>"
            f"---------------------------------<br/>"
-           f"List of stations:<br/>"
+           f"List of unique stations:<br/>"
            f"/api/v1.0/stations<br/>"
            f"---------------------------------<br/>"
-           f"Last one year of temperature data for most active station:<br/>"
+           f"Latest year of temperature data for most active station:<br/>"
            f"/api/v1.0/tobs<br/>"
            f"---------------------------------<br/>"
-           f"Get the min, max, and avg temperature for the latest year:<br/>"
+           f"Min, max, and avg temperature for the latest year:<br/>"
            f"(Hint: Replace start in url with start date YYYY-MM-DD format)<br/>"
            f"/api/v1.0/start<br/>"
            "---------------------------------<br/>"
-           f"Get the min, max, and avg temperature for custom date range:<br/>"
+           f"Min, max, and avg temperature for custom date range:<br/>"
            f"(Hint: Replace start and end in url with start and end dates YYYY-MM-DD format)<br/>"
            f"/api/v1.0/start/end"
            )
@@ -119,7 +123,7 @@ def stations():
     # Close the session
     session.close()
 
-    # Extract station id from each row in the query
+    # Extract station from each row in the query
     station_list = [station[0] for station in stations]
 
     # Return json
@@ -154,6 +158,31 @@ def tobs():
 
     # Return json
     return jsonify(results)
+
+@app.route("/api/v1.0/<start>")
+def start(start):
+
+    ####################################################
+    # MIN, MAX, AVG temp for all dates since start
+    ####################################################
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    summary = session.query(func.min(Measurement.tobs),
+                            func.max(Measurement.tobs),
+                            func.avg(Measurement.tobs)).\
+                            filter(Measurement.date >= start)
+    
+    # Close the session
+    session.close()
+
+    # Extract results from query
+    for row in summary:
+        summary_list = tuple(row)
+
+    # Return json
+    return jsonify(summary_list)
 
 if __name__ == "__main__":
     app.run(debug=True)

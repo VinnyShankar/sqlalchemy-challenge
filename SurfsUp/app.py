@@ -1,5 +1,5 @@
 # Import the dependencies.
-from flask import Flask
+from flask import Flask, jsonify
 import pandas as pd
 import datetime as dt
 import sqlalchemy
@@ -68,6 +68,9 @@ def precipitation():
     one_year = session.query(Measurement.date,Measurement.prcp).\
                              filter(Measurement.date >= date_one_year_ago).all()
     
+    # Close the session
+    session.close()
+    
     # Convert query results into dictionaries
     # with date as key and precipitation as value
     year_list = []
@@ -75,3 +78,7 @@ def precipitation():
         date_dict = {}
         date_dict[date] = prcp
         year_list.append(date_dict)
+    
+    return jsonify(year_list)
+
+    

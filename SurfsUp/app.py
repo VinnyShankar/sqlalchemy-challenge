@@ -41,7 +41,7 @@ def welcome():
            f"Replace <start> in url with start date YYYY-MM-DD format: /api/v1.0/<start><br/>"
            f"Replace <start> and <end> in url with start date YYYY-MM-DD format: /api/v1.0/<start>/<end>")
 
-@app.route("precipitation")
+@app.route("/api/v1.0/precipitation")
 def precipitation():
 
     ####################################################
@@ -81,4 +81,5 @@ def precipitation():
     
     return jsonify(year_list)
 
-    
+if __name__ == "__main__":
+    app.run(debug=True)

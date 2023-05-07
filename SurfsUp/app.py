@@ -38,24 +38,40 @@ def welcome():
            f"/api/v1.0/precipitation<br/>"
            f"/api/v1.0/stations<br/>"
            f"/api/v1.0/tobs<br/>"
-           f"/api/v1.0/<start><br/>"
-           f"/api/v1.0/<start>/<end>")
+           f"Replace <start> in url with start date YYYY-MM-DD format: /api/v1.0/<start><br/>"
+           f"Replace <start> and <end> in url with start date YYYY-MM-DD format: /api/v1.0/<start>/<end>")
 
 @app.route("precipitation")
 def precipitation():
-    # Create our session (link) from Python to the DB
+
+    ####################################################
+    # Present the date and precipitation for latest year
+    ####################################################
+
+    # Create session (link) from Python to the DB
     session = Session(engine)
 
-    #Create a query that finds the most recent date in the dataset
-    date_query = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    # Query the latest date in the dataset
+    date_query = session.query(Measurement.date).\
+                               order_by(Measurement.date.desc()).first()
     
-    #Convert the most recent date to a datetime object.
+    # Convert the latest date to a datetime object
     for date in date_query:
         latest_date = pd.to_datetime(date)
     
-    #Create a query that collects only the date and precipitation
-    #for the last year of data without passing the date as a variable
-    date_one_year_ago = dt.date(latest_date.year-1,latest_date.month,latest_date.day)
+    # Get the date one year ago
+    date_one_year_ago = dt.date(latest_date.year-1,
+                                latest_date.month,
+                                latest_date.day)
 
+    # Collect the date and precipitation for the latest year of data
     one_year = session.query(Measurement.date,Measurement.prcp).\
                              filter(Measurement.date >= date_one_year_ago).all()
+    
+    # Convert query results into dictionaries
+    # with date as key and precipitation as value
+    year_list = []
+    for date, prcp in one_year:
+        date_dict = {}
+        date_dict[date] = prcp
+        year_list.append(date_dict)

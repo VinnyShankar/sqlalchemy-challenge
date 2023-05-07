@@ -23,7 +23,7 @@ Measurement = Base.classes.measurement
 Station = Base.classes.station
 
 #################################################
-# Queries to reduce reundant code
+# Reducing reundant code
 #################################################
 
 # Create session (link) from Python to the DB
@@ -44,6 +44,11 @@ date_one_year_ago = dt.date(latest_date.year-1,
 
 # Close the session
 session.close()
+
+# Define summary statistics
+mma = [func.min(Measurement.tobs),
+       func.max(Measurement.tobs),
+       func.avg(Measurement.tobs)]
 
 #################################################
 # Flask Setup
@@ -89,7 +94,8 @@ def precipitation():
     session = Session(engine)
 
     # Collect the date and precipitation for the latest year of data
-    one_year = session.query(Measurement.date,Measurement.prcp).\
+    one_year = session.query(Measurement.date,
+                             Measurement.prcp).\
                              filter(Measurement.date >= date_one_year_ago).\
                              all()
     
@@ -169,9 +175,8 @@ def start(start):
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    summary = session.query(func.min(Measurement.tobs),
-                            func.max(Measurement.tobs),
-                            func.avg(Measurement.tobs)).\
+    # Query for summary statistics
+    summary = session.query(*mma).\
                             filter(Measurement.date >= start)
     
     # Close the session
@@ -194,9 +199,8 @@ def startend(start,end):
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    summary = session.query(func.min(Measurement.tobs),
-                            func.max(Measurement.tobs),
-                            func.avg(Measurement.tobs)).\
+    # Query for summary statistics
+    summary = session.query(*mma).\
                             filter(Measurement.date >= start).\
                             filter(Measurement.date <= end)
     

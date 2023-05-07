@@ -83,19 +83,17 @@ def precipitation():
     
     return jsonify(year_list)
 
-if __name__ == "__main__":
-    app.run(debug=True)
-
 @app.route("/api/v1.0/stations")
 def stations():
 
     ####################################################
-    # Present the date and precipitation for latest year
+    # Present list of stations
     ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
 
+    # Query
     stations = session.query(Station.id,
                              Station.station,
                              Station.name,
@@ -103,4 +101,22 @@ def stations():
                              Station.latitude,
                              Station.elevation)
     
+    # Close the session
     session.close()
+
+    # Convert query results into dictionaries
+    station_list = []
+    for id, station, name, longitude, latitude, elevation in stations:
+        station_dict = {}
+        station_dict["id"] = id
+        station_dict["station"] = station
+        station_dict["name"] = name
+        station_dict["longitude"] = longitude
+        station_dict["latitude"] = latitude
+        station_dict["elevation"] = elevation
+        station_list.append(station_dict)
+
+    return jsonify(station_list)
+
+if __name__ == "__main__":
+    app.run(debug=True)

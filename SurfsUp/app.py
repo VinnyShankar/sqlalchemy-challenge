@@ -33,9 +33,11 @@ app = Flask(__name__)
 @app.route("/")
 def welcome():
     """List all available routes."""
-    return(f"Welcome to the Home Page!<br/>"
+    return(f"Welcome to the Home Page, Surfer!<br/>"
+           f"---------------------------------<br/>"
            f"Available Routes:<br/>"
-           f"/api/v1.0/precipitation<br/>"
+           f"---------------------------------<br/>"
+           f"Latest year of precipitation data: /api/v1.0/precipitation<br/>"
            f"/api/v1.0/stations<br/>"
            f"/api/v1.0/tobs<br/>"
            f"Replace <start> in url with start date YYYY-MM-DD format: /api/v1.0/<start><br/>"
@@ -83,3 +85,22 @@ def precipitation():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+@app.route("/api/v1.0/stations")
+def stations():
+
+    ####################################################
+    # Present the date and precipitation for latest year
+    ####################################################
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    stations = session.query(Station.id,
+                             Station.station,
+                             Station.name,
+                             Station.longitude,
+                             Station.latitude,
+                             Station.elevation)
+    
+    session.close()

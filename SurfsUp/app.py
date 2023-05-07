@@ -22,6 +22,25 @@ Base.prepare(autoload_with=engine)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
+# Create session (link) from Python to the DB
+session = Session(engine)
+
+# Query the latest date in the dataset
+date_query = session.query(Measurement.date).\
+                            order_by(Measurement.date.desc()).first()
+
+# Convert the latest date to a datetime object
+for date in date_query:
+    latest_date = pd.to_datetime(date)
+
+# Get the date one year ago
+date_one_year_ago = dt.date(latest_date.year-1,
+                            latest_date.month,
+                            latest_date.day)
+
+# Close the session
+session.close()
+
 #################################################
 # Flask Setup
 #################################################
@@ -53,22 +72,10 @@ def precipitation():
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # Query the latest date in the dataset
-    date_query = session.query(Measurement.date).\
-                               order_by(Measurement.date.desc()).first()
-    
-    # Convert the latest date to a datetime object
-    for date in date_query:
-        latest_date = pd.to_datetime(date)
-    
-    # Get the date one year ago
-    date_one_year_ago = dt.date(latest_date.year-1,
-                                latest_date.month,
-                                latest_date.day)
-
     # Collect the date and precipitation for the latest year of data
     one_year = session.query(Measurement.date,Measurement.prcp).\
-                             filter(Measurement.date >= date_one_year_ago).all()
+                             filter(Measurement.date >= date_one_year_ago).\
+                             all()
     
     # Close the session
     session.close()
@@ -81,6 +88,7 @@ def precipitation():
         date_dict[date] = prcp
         year_list.append(date_dict)
     
+    # Return json
     return jsonify(year_list)
 
 @app.route("/api/v1.0/stations")
@@ -116,7 +124,37 @@ def stations():
         station_dict["elevation"] = elevation
         station_list.append(station_dict)
 
+    # Return json
     return jsonify(station_list)
+
+@app.route("/api/v1.0/tobs")
+def tobs():
+
+    ####################################################
+    # Latest year of tobs data for most active station
+    ####################################################
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # Query for most active station id
+    most_active_station = session.query(Measurement.station,
+                                        func.count(Measurement.station)).\
+                                        group_by(Measurement.station).\
+                                        order_by(func.count(Measurement.station).\
+                                        desc())[0][0]
+
+    # Query date and tobs data for most active station
+    tobs_data = session.query(Measurement.tobs).\
+                              filter(Measurement.date >= date_one_year_ago).\
+                              filter(Measurement.station == most_active_station).\
+                              all()
+    
+    # Extract tobs from each row in the query
+    results = [tobs[0] for tobs in tobs_data]
+
+    # Return json
+    return jsonify(results)
 
 if __name__ == "__main__":
     app.run(debug=True)

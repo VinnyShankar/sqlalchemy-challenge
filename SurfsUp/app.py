@@ -56,17 +56,29 @@ def welcome():
            f"---------------------------------<br/>"
            f"Available Routes:<br/>"
            f"---------------------------------<br/>"
-           f"Latest year of precipitation data: /api/v1.0/precipitation<br/>"
+           f"Latest year of precipitation data:<br/>"
+           f"/api/v1.0/precipitation<br/>"
+           f"---------------------------------<br/>"
+           f"List of stations:<br/>"
            f"/api/v1.0/stations<br/>"
+           f"---------------------------------<br/>"
+           f"Last one year of temperature data for most active station:<br/>"
            f"/api/v1.0/tobs<br/>"
-           f"Replace <start> in url with start date YYYY-MM-DD format: /api/v1.0/<start><br/>"
-           f"Replace <start> and <end> in url with start date YYYY-MM-DD format: /api/v1.0/<start>/<end>")
+           f"---------------------------------<br/>"
+           f"Get the min, max, and avg temperature for the latest year:<br/>"
+           f"(Hint: Replace start in url with start date YYYY-MM-DD format)<br/>"
+           f"/api/v1.0/start<br/>"
+           "---------------------------------<br/>"
+           f"Get the min, max, and avg temperature for custom date range:<br/>"
+           f"(Hint: Replace start and end in url with start and end dates YYYY-MM-DD format)<br/>"
+           f"/api/v1.0/start/end"
+           )
 
 @app.route("/api/v1.0/precipitation")
 def precipitation():
 
     ####################################################
-    # Present the date and precipitation for latest year
+    # Date and precipitation for latest year
     ####################################################
 
     # Create session (link) from Python to the DB
@@ -95,7 +107,7 @@ def precipitation():
 def stations():
 
     ####################################################
-    # Present list of unique stations
+    # List of unique stations
     ####################################################
 
     # Create session (link) from Python to the DB
@@ -131,13 +143,14 @@ def tobs():
                                         desc())[0][0]
 
     # Query date and tobs data for most active station
-    tobs_data = session.query(Measurement.tobs).\
+    tobs_data = session.query(Measurement.date,
+                              Measurement.tobs).\
                               filter(Measurement.date >= date_one_year_ago).\
                               filter(Measurement.station == most_active_station).\
                               all()
     
-    # Extract tobs from each row in the query
-    results = [tobs[0] for tobs in tobs_data]
+    # Extract date and tobs from each row in the query
+    results = [tuple(row) for row in tobs_data]
 
     # Return json
     return jsonify(results)

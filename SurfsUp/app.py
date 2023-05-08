@@ -23,27 +23,25 @@ Measurement = Base.classes.measurement
 Station = Base.classes.station
 
 #################################################
-# Reducing reundant code
+# Reducing redundant code
 #################################################
 
 # Create session (link) from Python to the DB
 session = Session(engine)
 
 # Query the latest date in the dataset
-date_query = session.query(Measurement.date).\
-                           order_by(Measurement.date.desc()).\
-                           first()[0]
+date_query = session.query(func.max(Measurement.date))[0][0]
+
+# Close the session
+session.close()
 
 # Convert the latest date to a datetime object
 latest_date = pd.to_datetime(date_query)
 
-# Get the date one year ago
+# Calculate the date one year ago
 date_one_year_ago = dt.date(latest_date.year-1,
                             latest_date.month,
                             latest_date.day)
-
-# Close the session
-session.close()
 
 # Define summary statistics
 mma = [func.min(Measurement.tobs),
@@ -169,7 +167,7 @@ def tobs():
 def start(start):
 
     ####################################################
-    # MIN, MAX, AVG temp for all dates since start
+    # MIN, MAX, AVG temps for all dates since start
     ####################################################
 
     # Create session (link) from Python to the DB
@@ -183,11 +181,18 @@ def start(start):
     session.close()
 
     # Extract results from query
-    for row in summary:
-        summary_list = tuple(row)
+    tlist = []
+    for min, max, avg in summary:
+        tdict = {}
+        tdict["Start"] = start
+        tdict["End"] = date_query
+        tdict["TAVG"] = avg
+        tdict["TMAX"] = max
+        tdict["TMIN"] = min
+        tlist.append(tdict)
 
     # Return json
-    return jsonify(summary_list)
+    return jsonify(tlist)
 
 @app.route("/api/v1.0/<start>/<end>")
 def startend(start,end):
@@ -196,23 +201,39 @@ def startend(start,end):
     # MIN, MAX, AVG temp for all dates since start
     ####################################################
 
-    # Create session (link) from Python to the DB
-    session = Session(engine)
-
-    # Query for summary statistics
-    summary = session.query(*mma).\
-                            filter(Measurement.date >= start).\
-                            filter(Measurement.date <= end)
+    # Error mesage
     
-    # Close the session
-    session.close()
+    if end < start:
+        return("Error! Check the following:<br/>"
+               "Dates must be in YYYY-MM-DD format.<br/>"
+               "Your start date must be earlier than your end date.")
+    
+    else:
 
-    # Extract results from query
-    for row in summary:
-        summary_list = tuple(row)
+        # Create session (link) from Python to the DB
+        session = Session(engine)
 
-    # Return json
-    return jsonify(summary_list)
+        # Query for summary statistics
+        summary = session.query(*mma).\
+                                filter(Measurement.date >= start).\
+                                filter(Measurement.date <= end)
+        
+        # Close the session
+        session.close()
+
+        # Extract results from query
+        tlist = []
+        for min, max, avg in summary:
+            tdict = {}
+            tdict["Start"] = start
+            tdict["End"] = end
+            tdict["TAVG"] = avg
+            tdict["TMAX"] = max
+            tdict["TMIN"] = min
+            tlist.append(tdict)
+
+        # Return json
+        return jsonify(tlist)
 
 if __name__ == "__main__":
     app.run(debug=True)

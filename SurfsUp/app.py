@@ -23,25 +23,54 @@ Measurement = Base.classes.measurement
 Station = Base.classes.station
 
 #################################################
-# Reducing redundant code
+# Functions to reduce redundant code
 #################################################
 
-# Create session (link) from Python to the DB
-session = Session(engine)
+# Find the latest date in the dataset
+def latest_date():
 
-# Query the latest date in the dataset
-date_query = session.query(func.max(Measurement.date))[0][0]
+    # Create session (link) from Python to the DB
+    session = Session(engine)
 
-# Close the session
-session.close()
+    # Query the latest date in the dataset
+    date_query = session.query(func.max(Measurement.date))[0][0]
 
-# Convert the latest date to a datetime object
-latest_date = pd.to_datetime(date_query)
+    # Close the session
+    session.close()
 
-# Calculate the date one year ago
-date_one_year_ago = dt.date(latest_date.year-1,
-                            latest_date.month,
-                            latest_date.day)
+    # Return the latest date
+    return date_query
+
+# Find the date one year before lastest date
+def year_ago_date(date_query):
+
+    # Convert the latest date to a datetime object
+    latest_date = pd.to_datetime(date_query)
+
+    # Calculate the date one year ago
+    date_one_year_ago = dt.date(latest_date.year-1,
+                                latest_date.month,
+                                latest_date.day)
+    
+    # Return the date one year before latest date
+    return date_one_year_ago
+
+# Dictionary function
+def summary_dict(summary,start,some_date):
+
+    # Empty list
+    tlist = []
+
+    # Construct and return dictionary
+    for min, max, avg in summary:
+        tdict = {}
+        tdict["Start"] = start
+        tdict["End"] = some_date
+        tdict["TAVG"] = avg
+        tdict["TMAX"] = max
+        tdict["TMIN"] = min
+        tlist.append(tdict)
+    return tlist
 
 # Define summary statistics
 mma = [func.min(Measurement.tobs),
@@ -63,22 +92,22 @@ def welcome():
            f"---------------------------------<br/>"
            f"Available Routes:<br/>"
            f"---------------------------------<br/>"
-           f"Date and precipitation for latest year:<br/>"
-           f"/api/v1.0/precipitation<br/>"
+           f"Route: /api/v1.0/precipitation<br/>"
+           f"Description: Date and precipitation for latest year<br/>"
            f"---------------------------------<br/>"
-           f"List of unique stations:<br/>"
-           f"/api/v1.0/stations<br/>"
+           f"Route: /api/v1.0/stations<br/>"
+           f"Description: List of unique stations<br/>"
            f"---------------------------------<br/>"
-           f"Latest year of temperature data for most active station:<br/>"
-           f"/api/v1.0/tobs<br/>"
+           f"Route: /api/v1.0/tobs<br/>"
+           f"Description: Latest year of temperature data for most active station<br/>"
            f"---------------------------------<br/>"
-           f"Min, max, and avg temperature for the latest year:<br/>"
-           f"(Hint: Replace start in url with start date YYYY-MM-DD format)<br/>"
-           f"/api/v1.0/start<br/>"
-           "---------------------------------<br/>"
-           f"Min, max, and avg temperature for custom date range:<br/>"
-           f"(Hint: Replace start and end in url with start and end dates YYYY-MM-DD format)<br/>"
-           f"/api/v1.0/start/end"
+           f"Route: /api/v1.0/start<br/>"
+           f"Description: Min, max, and avg temperature from start to latest date<br/>"
+           f"Hint: Replace 'start' in url with YYYY-MM-DD format<br/>"
+           f"---------------------------------<br/>"
+           f"Route: /api/v1.0/start/end<br/>"
+           f"Description: Min, max, and avg temperature for custom date range<br/>"
+           f"Hint: Replace 'start' and 'end' in url with YYYY-MM-DD format<br/>"
            )
 
 @app.route("/api/v1.0/precipitation")
@@ -94,44 +123,54 @@ def precipitation():
     # Collect the date and precipitation for the latest year of data
     one_year = session.query(Measurement.date,
                              Measurement.prcp).\
-                             filter(Measurement.date >= date_one_year_ago).\
+                             filter(Measurement.date >= year_ago_date(latest_date())).\
                              all()
     
     # Close the session
     session.close()
     
-    # Convert query results into dictionaries
+    # Convert query results into a dictionary
     # with date as key and precipitation as value
-    year_list = []
-    for date, prcp in one_year:
-        date_dict = {}
-        date_dict[date] = prcp
-        year_list.append(date_dict)
+    year_prcp_data = dict(one_year)
     
     # Return json
-    return jsonify(year_list)
+    return jsonify(year_prcp_data)
 
 @app.route("/api/v1.0/stations")
 def stations():
 
     ####################################################
-    # List of unique stations
+    # List of stations
     ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # Query unique stations from Station table
-    stations = session.query(Station.station).distinct()
+    # Query stations from Station table
+    stations = session.query(Station.latitude,
+                             Station.id,
+                             Station.elevation,
+                             Station.station,
+                             Station.name,
+                             Station.longitude)
     
     # Close the session
     session.close()
 
     # Extract station from each row in the query
-    station_list = [station[0] for station in stations]
-
+    station_list = []
+    for latitude,id,elevation,station,name,longitude in stations:
+        station_dict = {"latitude":latitude,
+                        "id":id,
+                        "elevation":elevation,
+                        "station":station,
+                        "name":name,
+                        "longitude":longitude}
+        station_list.append(station_dict)
+    
     # Return json
     return jsonify(station_list)
+
 
 @app.route("/api/v1.0/tobs")
 def tobs():
@@ -153,12 +192,14 @@ def tobs():
     # Query date and tobs data for most active station
     tobs_data = session.query(Measurement.date,
                               Measurement.tobs).\
-                              filter(Measurement.date >= date_one_year_ago).\
+                              filter(Measurement.date >= year_ago_date(latest_date())).\
                               filter(Measurement.station == most_active_station).\
                               all()
     
     # Extract date and tobs from each row in the query
-    results = [tuple(row) for row in tobs_data]
+    #results = [tuple(row) for row in tobs_data]
+    #results = [row[1] for row in tobs_data]
+    results = [dict(tobs_data)]
 
     # Return json
     return jsonify(results)
@@ -170,32 +211,30 @@ def start(start):
     # MIN, MAX, AVG temps for all dates since start
     ####################################################
 
-    # Create session (link) from Python to the DB
-    session = Session(engine)
-
-    # Query for summary statistics
-    summary = session.query(*mma).\
-                            filter(Measurement.date >= start)
+    # Error mesage
     
-    # Close the session
-    session.close()
+    if latest_date() < start:
+        return("Error! Check the following:<br/>"
+               "Dates must be in YYYY-MM-DD format.<br/>"
+               f"Your start date must be >= {latest_date()}")
+    
+    else:
 
-    # Extract results from query
-    tlist = []
-    for min, max, avg in summary:
-        tdict = {}
-        tdict["Start"] = start
-        tdict["End"] = date_query
-        tdict["TAVG"] = avg
-        tdict["TMAX"] = max
-        tdict["TMIN"] = min
-        tlist.append(tdict)
+        # Create session (link) from Python to the DB
+        session = Session(engine)
 
-    # Return json
-    return jsonify(tlist)
+        # Query for summary statistics
+        summary = session.query(*mma).\
+                                filter(Measurement.date >= start)
+        
+        # Close the session
+        session.close()
+
+        # Return json
+        return jsonify(summary_dict(summary,start,latest_date()))
 
 @app.route("/api/v1.0/<start>/<end>")
-def startend(start,end):
+def start_end(start,end):
 
     ####################################################
     # MIN, MAX, AVG temp for all dates since start
@@ -221,19 +260,9 @@ def startend(start,end):
         # Close the session
         session.close()
 
-        # Extract results from query
-        tlist = []
-        for min, max, avg in summary:
-            tdict = {}
-            tdict["Start"] = start
-            tdict["End"] = end
-            tdict["TAVG"] = avg
-            tdict["TMAX"] = max
-            tdict["TMIN"] = min
-            tlist.append(tdict)
-
         # Return json
-        return jsonify(tlist)
+        return jsonify(summary_dict(summary,start,end))
 
+# Debug mode
 if __name__ == "__main__":
     app.run(debug=True)

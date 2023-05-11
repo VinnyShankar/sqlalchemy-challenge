@@ -25,7 +25,7 @@ Station = Base.classes.station
 # Functions & varaibles to reduce redundant code
 #################################################
 
-# Find the latest date in the dataset
+# Function to find the latest date in the dataset
 def latest_date():
 
     # Create session (link) from Python to the DB
@@ -40,7 +40,7 @@ def latest_date():
     # Return the latest date
     return date_query
 
-# Find the date one year before lastest date
+# Function to find the date one year before lastest date
 def year_ago_date(date_query):
 
     # Convert the latest date to a datetime object
@@ -54,7 +54,7 @@ def year_ago_date(date_query):
     # Return the date one year before latest date
     return date_one_year_ago
 
-# Find the earliest date in the dataset
+# Function to find the earliest date in the dataset
 def earliest_date():
 
     # Create session (link) from Python to the DB
@@ -69,7 +69,7 @@ def earliest_date():
     # Return the latest date
     return date_query
 
-# Dictionary function
+# Function to create dictionary of summary statistics for temperature
 def summary_dict(summary,start,some_date):
 
     # Empty list
@@ -86,12 +86,12 @@ def summary_dict(summary,start,some_date):
         tlist.append(tdict)
     return tlist
 
-# Define summary statistics
+# Variable containing summary statistics functions
 mma = [func.min(Measurement.tobs),
        func.max(Measurement.tobs),
        func.avg(Measurement.tobs)]
 
-# Error message
+# Variable containing error message
 error_message = ("Bummer! You found an error. Check the following:<br/>"
                  "1. Dates must be in YYYY-MM-DD format.<br/>"
                  f"2. Dates must be between {earliest_date()} and {latest_date()}<br/>"
@@ -130,12 +130,11 @@ def welcome():
            f"Hint: Replace 'start' and 'end' in url with YYYY-MM-DD format<br/>"
            )
 
+####################################################
+# Date and precipitation for latest year
+####################################################
 @app.route("/api/v1.0/precipitation")
 def precipitation_route():
-
-    ####################################################
-    # Date and precipitation for latest year
-    ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
@@ -159,12 +158,11 @@ def precipitation_route():
     # Return json
     return jsonify(year_list)
 
+####################################################
+# List of stations
+####################################################
 @app.route("/api/v1.0/stations")
 def station_route():
-
-    ####################################################
-    # List of stations
-    ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
@@ -195,13 +193,11 @@ def station_route():
     # Return json
     return jsonify(station_list)
 
-
+####################################################
+# Latest year of tobs data for most active station
+####################################################
 @app.route("/api/v1.0/tobs")
 def tobs_route():
-
-    ####################################################
-    # Latest year of tobs data for most active station
-    ####################################################
 
     # Create session (link) from Python to the DB
     session = Session(engine)
@@ -229,12 +225,11 @@ def tobs_route():
     # Return json
     return jsonify(results)
 
+####################################################
+# MIN, MAX, AVG temps for all dates since start
+####################################################
 @app.route("/api/v1.0/<start>")
 def start(start):
-
-    ####################################################
-    # MIN, MAX, AVG temps for all dates since start
-    ####################################################
 
     # Try getting the data based on user's input
     try:
@@ -266,12 +261,11 @@ def start(start):
     except:
         return error_message
 
+####################################################
+# MIN, MAX, AVG temp for dates between start & end
+####################################################
 @app.route("/api/v1.0/<start>/<end>")
 def start_end(start,end):
-
-    ####################################################
-    # MIN, MAX, AVG temp for all dates since start
-    ####################################################
 
     # Try getting the data based on user's inputs
     try:

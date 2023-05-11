@@ -2,7 +2,6 @@
 from flask import Flask, jsonify
 import pandas as pd
 import datetime as dt
-import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
@@ -23,7 +22,7 @@ Measurement = Base.classes.measurement
 Station = Base.classes.station
 
 #################################################
-# Functions to reduce redundant code
+# Functions & varaibles to reduce redundant code
 #################################################
 
 # Find the latest date in the dataset
@@ -55,6 +54,21 @@ def year_ago_date(date_query):
     # Return the date one year before latest date
     return date_one_year_ago
 
+# Find the earliest date in the dataset
+def earliest_date():
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # Query the latest date in the dataset
+    date_query = session.query(func.min(Measurement.date))[0][0]
+
+    # Close the session
+    session.close()
+
+    # Return the latest date
+    return date_query
+
 # Dictionary function
 def summary_dict(summary,start,some_date):
 
@@ -76,6 +90,12 @@ def summary_dict(summary,start,some_date):
 mma = [func.min(Measurement.tobs),
        func.max(Measurement.tobs),
        func.avg(Measurement.tobs)]
+
+# Error message
+error_message = ("Bummer! You found an error. Check the following:<br/>"
+                 "1. Dates must be in YYYY-MM-DD format.<br/>"
+                 f"2. Dates must be between {earliest_date()} and {latest_date()}<br/>"
+                 f"3. If using both start & end dates: start date must be earlier than end date")
 
 #################################################
 # Flask Setup
@@ -111,7 +131,7 @@ def welcome():
            )
 
 @app.route("/api/v1.0/precipitation")
-def precipitation():
+def precipitation_route():
 
     ####################################################
     # Date and precipitation for latest year
@@ -131,13 +151,16 @@ def precipitation():
     
     # Convert query results into a dictionary
     # with date as key and precipitation as value
-    year_prcp_data = dict(one_year)
+    year_list = []
+    for date,prcp in one_year:
+        prcp_dict = {date:prcp}
+        year_list.append(prcp_dict)
     
     # Return json
-    return jsonify(year_prcp_data)
+    return jsonify(year_list)
 
 @app.route("/api/v1.0/stations")
-def stations():
+def station_route():
 
     ####################################################
     # List of stations
@@ -157,7 +180,8 @@ def stations():
     # Close the session
     session.close()
 
-    # Extract station from each row in the query
+    # Convert query results into a list of dictionaries
+    # with one dictionary for each station
     station_list = []
     for latitude,id,elevation,station,name,longitude in stations:
         station_dict = {"latitude":latitude,
@@ -173,7 +197,7 @@ def stations():
 
 
 @app.route("/api/v1.0/tobs")
-def tobs():
+def tobs_route():
 
     ####################################################
     # Latest year of tobs data for most active station
@@ -195,10 +219,11 @@ def tobs():
                               filter(Measurement.date >= year_ago_date(latest_date())).\
                               filter(Measurement.station == most_active_station).\
                               all()
+
+    # Close the session
+    session.close()
     
     # Extract date and tobs from each row in the query
-    #results = [tuple(row) for row in tobs_data]
-    #results = [row[1] for row in tobs_data]
     results = [dict(tobs_data)]
 
     # Return json
@@ -211,27 +236,35 @@ def start(start):
     # MIN, MAX, AVG temps for all dates since start
     ####################################################
 
-    # Error mesage
-    
-    if latest_date() < start:
-        return("Error! Check the following:<br/>"
-               "Dates must be in YYYY-MM-DD format.<br/>"
-               f"Your start date must be >= {latest_date()}")
-    
-    else:
+    # Try getting the data based on user's input
+    try:
 
-        # Create session (link) from Python to the DB
-        session = Session(engine)
-
-        # Query for summary statistics
-        summary = session.query(*mma).\
-                                filter(Measurement.date >= start)
+        # If the start date is out of range, return the error message
+        if latest_date() < start or earliest_date() > start:
+            return error_message
         
-        # Close the session
-        session.close()
+        # Else
+        else:
 
-        # Return json
-        return jsonify(summary_dict(summary,start,latest_date()))
+            # Check that the date format is YYYY-MM-DD
+            dt.datetime.strptime(start,"%Y-%m-%d")
+
+            # Create session (link) from Python to the DB
+            session = Session(engine)
+
+            # Query for summary statistics
+            summary = session.query(*mma).\
+                                    filter(Measurement.date >= start)
+            
+            # Close the session
+            session.close()
+
+            # Return json
+            return jsonify(summary_dict(summary,start,latest_date()))
+        
+    # If there is an exception, return the error message
+    except:
+        return error_message
 
 @app.route("/api/v1.0/<start>/<end>")
 def start_end(start,end):
@@ -240,28 +273,42 @@ def start_end(start,end):
     # MIN, MAX, AVG temp for all dates since start
     ####################################################
 
-    # Error mesage
-    
-    if end < start:
-        return("Error! Check the following:<br/>"
-               "Dates must be in YYYY-MM-DD format.<br/>"
-               "Your start date must be earlier than your end date.")
-    
-    else:
+    # Try getting the data based on user's inputs
+    try:
 
-        # Create session (link) from Python to the DB
-        session = Session(engine)
-
-        # Query for summary statistics
-        summary = session.query(*mma).\
-                                filter(Measurement.date >= start).\
-                                filter(Measurement.date <= end)
+        # If the start or end date is out of range
+        # or if start date is after end date, return the error message
+        if latest_date() < start or\
+           earliest_date() > start or\
+           latest_date() < end or\
+           earliest_date() > end or\
+           start > end:
+            return error_message
         
-        # Close the session
-        session.close()
+        # Else
+        else:
 
-        # Return json
-        return jsonify(summary_dict(summary,start,end))
+            # Check that the date formats are YYYY-MM-DD
+            dt.datetime.strptime(start,"%Y-%m-%d")
+            dt.datetime.strptime(end,"%Y-%m-%d")
+
+            # Create session (link) from Python to the DB
+            session = Session(engine)
+
+            # Query for summary statistics
+            summary = session.query(*mma).\
+                                    filter(Measurement.date >= start).\
+                                    filter(Measurement.date <= end)
+            
+            # Close the session
+            session.close()
+
+            # Return json
+            return jsonify(summary_dict(summary,start,end))
+
+    # If there is an exception, return the error message
+    except:
+        return error_message
 
 # Debug mode
 if __name__ == "__main__":

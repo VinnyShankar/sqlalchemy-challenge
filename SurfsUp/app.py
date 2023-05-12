@@ -40,7 +40,7 @@ def latest_date():
     # Return the latest date
     return date_query
 
-# Function to find the date one year before lastest date
+# Function to find the date one year before latest date
 def year_ago_date(date_query):
 
     # Convert the latest date to a datetime object
@@ -86,6 +86,23 @@ def summary_dict(summary,start,some_date):
         tlist.append(tdict)
     return tlist
 
+# Function to find most active station
+def most_active():
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    most_active_station = session.query(Measurement.station,
+                                        func.count(Measurement.station)).\
+                                        group_by(Measurement.station).\
+                                        order_by(func.count(Measurement.station).\
+                                        desc())[0][0]
+    # Close the session
+    session.close()
+
+    # Return the latest date
+    return most_active_station
+
 # Variable containing summary statistics functions
 mma = [func.min(Measurement.tobs),
        func.max(Measurement.tobs),
@@ -113,13 +130,22 @@ def welcome():
            f"Available Routes:<br/>"
            f"---------------------------------<br/>"
            f"Route: /api/v1.0/precipitation<br/>"
-           f"Description: Date and precipitation for latest year<br/>"
+           f"Description: Date and precipitation for latest year for all stations<br/>"
+           f"---------------------------------<br/>"
+           f"Route: /api/v1.0/precipitation_most_active_station<br/>"
+           f"Description: Date and precipitation for latest year for most active station<br/>"
            f"---------------------------------<br/>"
            f"Route: /api/v1.0/stations<br/>"
            f"Description: List of unique stations<br/>"
            f"---------------------------------<br/>"
+           f"Route: /api/v1.0/stations_advanced<br/>"
+           f"Description: Dictionaries of station information<br/>"
+           f"---------------------------------<br/>"
            f"Route: /api/v1.0/tobs<br/>"
-           f"Description: Latest year of temperature data for most active station<br/>"
+           f"Description: Latest year of dates and temperatures for most active station<br/>"
+           f"---------------------------------<br/>"
+           f"Route: /api/v1.0/tobs_only<br/>"
+           f"Description: Latest year of temperatures for most active station<br/>"
            f"---------------------------------<br/>"
            f"Route: /api/v1.0/start<br/>"
            f"Description: Min, max, and avg temperature from start to latest date<br/>"
@@ -131,7 +157,7 @@ def welcome():
            )
 
 ####################################################
-# Date and precipitation for latest year
+# Date and precipitation for latest year for all stations
 ####################################################
 @app.route("/api/v1.0/precipitation")
 def precipitation_route():
@@ -148,7 +174,7 @@ def precipitation_route():
     # Close the session
     session.close()
     
-    # Convert query results into a dictionary
+    # Convert each query result into a dictionary
     # with date as key and precipitation as value
     year_list = []
     for date,prcp in one_year:
@@ -159,10 +185,58 @@ def precipitation_route():
     return jsonify(year_list)
 
 ####################################################
-# List of stations
+# Date and precipitation for latest year for most active station
+####################################################
+@app.route("/api/v1.0/precipitation_most_active_station")
+def precipitation_most_active_station_route():
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # Collect the date and precipitation for the latest year of data
+    one_year = session.query(Measurement.date,
+                             Measurement.prcp).\
+                             filter(Measurement.date >= year_ago_date(latest_date())).\
+                             filter(Measurement.station == most_active()).\
+                             all()
+    
+    # Close the session
+    session.close()
+    
+    # Convert query results into a dictionary
+    # with date as key and precipitation as value
+    year_dict = dict(one_year)
+    
+    # Return json
+    return jsonify(year_dict)
+
+####################################################
+# List of unique stations
 ####################################################
 @app.route("/api/v1.0/stations")
 def station_route():
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # Query unique stations from Station table
+    stations = session.query(Station.station).\
+                             distinct()
+    
+    # Close the session
+    session.close()
+
+    # Convert query results into a list of unique stations
+    station_list = [row[0] for row in stations]
+    
+    # Return json
+    return jsonify(station_list)
+
+####################################################
+# List with dictionaries of station information
+####################################################
+@app.route("/api/v1.0/stations_advanced")
+def station_advanced_route():
 
     # Create session (link) from Python to the DB
     session = Session(engine)
@@ -194,7 +268,7 @@ def station_route():
     return jsonify(station_list)
 
 ####################################################
-# Latest year of tobs data for most active station
+# Latest year of dates and tobs for most active station
 ####################################################
 @app.route("/api/v1.0/tobs")
 def tobs_route():
@@ -202,18 +276,11 @@ def tobs_route():
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # Query for most active station id
-    most_active_station = session.query(Measurement.station,
-                                        func.count(Measurement.station)).\
-                                        group_by(Measurement.station).\
-                                        order_by(func.count(Measurement.station).\
-                                        desc())[0][0]
-
     # Query date and tobs data for most active station
     tobs_data = session.query(Measurement.date,
                               Measurement.tobs).\
                               filter(Measurement.date >= year_ago_date(latest_date())).\
-                              filter(Measurement.station == most_active_station).\
+                              filter(Measurement.station == most_active()).\
                               all()
 
     # Close the session
@@ -226,10 +293,34 @@ def tobs_route():
     return jsonify(results)
 
 ####################################################
+# Latest year of tobs for most active station
+####################################################
+@app.route("/api/v1.0/tobs_only")
+def tobs_only_route():
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # Query date and tobs data for most active station
+    tobs_data = session.query(Measurement.tobs).\
+                              filter(Measurement.date >= year_ago_date(latest_date())).\
+                              filter(Measurement.station == most_active()).\
+                              all()
+
+    # Close the session
+    session.close()
+    
+    # Extract date and tobs from each row in the query
+    results = [tobs[0] for tobs in tobs_data]
+
+    # Return json
+    return jsonify(results)
+
+####################################################
 # MIN, MAX, AVG temps for all dates since start
 ####################################################
 @app.route("/api/v1.0/<start>")
-def start(start):
+def start_route(start):
 
     # Try getting the data based on user's input
     try:
@@ -265,7 +356,7 @@ def start(start):
 # MIN, MAX, AVG temp for dates between start & end
 ####################################################
 @app.route("/api/v1.0/<start>/<end>")
-def start_end(start,end):
+def start_end_route(start,end):
 
     # Try getting the data based on user's inputs
     try:
